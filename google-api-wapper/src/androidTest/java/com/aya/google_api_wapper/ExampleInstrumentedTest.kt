@@ -1,4 +1,4 @@
-package com.aya.google_api_wapper_sample
+package com.aya.google_api_wapper
 
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4

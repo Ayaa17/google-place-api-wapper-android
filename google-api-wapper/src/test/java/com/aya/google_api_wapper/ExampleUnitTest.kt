@@ -1,4 +1,4 @@
-package com.aya.google_api_wapper_sample
+package com.aya.google_api_wapper
 
 import org.junit.Test
 
