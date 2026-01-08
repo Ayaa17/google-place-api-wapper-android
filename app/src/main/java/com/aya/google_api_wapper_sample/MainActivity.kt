@@ -57,8 +57,11 @@ class MainActivity : ComponentActivity() {
             SimplePlaceUI(
                 resultText = resultText,
                 onButtonClick = {
-                    val keyword = "台北"
-                    placeApi?.autocompletePlaces(keyword)
+//                    val keyword = "台北"
+//                    placeApi?.autocompletePlaces(keyword)
+
+                    val placeID = "ChIJcVe4HuirQjQRWHrzxtVRImg" //test 台灣臺北市松山區南京東路四段台北小巨蛋
+                    placeApi?.fetchPlaceDetails(placeID)
                 }
             )
         }
