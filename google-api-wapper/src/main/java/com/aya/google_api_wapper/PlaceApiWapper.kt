@@ -158,4 +158,64 @@ class PlaceApiWapper(context: Context, key: String, callback: PlaceCallback) {
 
     }
 
+    /***
+     * fields trigger the Place Details Essentials SKU+...
+     * ***/
+    fun fetchDetails(placeId: String) {
+        val fields = listOf(
+            // Place Details Essentials IDs Only SKU:
+            Place.Field.ID,
+//            Place.Field.PHOTO_METADATAS, // todo:https://developers.google.com/maps/documentation/places/android-sdk/place-photos
+
+            // Place Details Essentials SKU:
+            Place.Field.FORMATTED_ADDRESS,
+            Place.Field.LOCATION,
+            Place.Field.TYPES,
+
+            // Place Details Pro SKU:
+            Place.Field.DISPLAY_NAME,
+
+            // Place Details Enterprise SKU:
+            Place.Field.INTERNATIONAL_PHONE_NUMBER,
+            Place.Field.RATING,
+            Place.Field.USER_RATING_COUNT,
+            Place.Field.OPENING_HOURS,
+            Place.Field.PRICE_LEVEL,
+
+            // Place Details Enterprise Plus SKU:
+            Place.Field.REVIEWS,
+        )
+
+        val builder = FetchPlaceRequest.builder(placeId, fields)
+
+        lastToken?.let {
+            builder.setSessionToken(it)
+        }
+
+        val request = builder.build()
+
+        placesClient.fetchPlace(request)
+            .addOnSuccessListener { response ->
+
+                val place = response.place
+
+                val result = mapOf(
+                    "placeId" to place.id,
+                    "address" to place.formattedAddress,
+                    "latLng" to place.location?.let {
+                        mapOf(
+                            "lat" to it.latitude,
+                            "lng" to it.longitude
+                        )
+                    },
+                    "types" to place.placeTypes
+                )
+                cb.onSuccess(result)
+
+            }.addOnFailureListener { e ->
+                cb.onError(e)
+            }
+        lastToken = null
+    }
+
 }
