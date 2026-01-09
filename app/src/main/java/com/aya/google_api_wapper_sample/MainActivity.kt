@@ -60,8 +60,11 @@ class MainActivity : ComponentActivity() {
 //                    val keyword = "台北"
 //                    placeApi?.autocompletePlaces(keyword)
 
-                    val placeID = "ChIJcVe4HuirQjQRWHrzxtVRImg" //test 台灣臺北市松山區南京東路四段台北小巨蛋
-                    placeApi?.fetchPlaceDetails(placeID)
+//                    val placeID = "ChIJcVe4HuirQjQRWHrzxtVRImg" //test 台灣臺北市松山區南京東路四段台北小巨蛋
+//                    placeApi?.fetchPlaceDetails(placeID)
+
+                    val center = Pair<Double, Double>(40.7580, -73.9855)
+                    placeApi?.searchNearby(center, 1000.0)
                 }
             )
         }

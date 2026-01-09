@@ -1,12 +1,18 @@
 package com.aya.google_api_wapper
 
 import android.content.Context
+import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.tasks.OnSuccessListener
 import com.google.android.libraries.places.api.Places
 import com.google.android.libraries.places.api.model.AutocompleteSessionToken
+import com.google.android.libraries.places.api.model.CircularBounds
 import com.google.android.libraries.places.api.model.Place
 import com.google.android.libraries.places.api.net.FetchPlaceRequest
 import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
 import com.google.android.libraries.places.api.net.PlacesClient
+import com.google.android.libraries.places.api.net.SearchNearbyRequest
+import com.google.android.libraries.places.api.net.SearchNearbyResponse
+
 
 class PlaceApiWapper(context: Context, key: String, callback: PlaceCallback) {
     var placesClient: PlacesClient
@@ -99,6 +105,57 @@ class PlaceApiWapper(context: Context, key: String, callback: PlaceCallback) {
                 cb.onError(e)
             }
         lastToken = null
+    }
+
+    fun searchNearby(longitude: Pair<Double, Double>, radius: Double, maxResult: Int = 20) {
+
+        val placeFields = listOf(
+            Place.Field.ID,
+            Place.Field.DISPLAY_NAME,
+            Place.Field.LOCATION,
+//            Place.Field.PHOTO_METADATAS, // todo: 需搭配 https://developers.google.com/maps/documentation/places/android-sdk/place-photos
+            Place.Field.BUSINESS_STATUS,
+            Place.Field.FORMATTED_ADDRESS,
+        )
+
+        val center = LatLng(longitude.first, longitude.second)
+        val circle = CircularBounds.newInstance(center,  /* radius = */radius)
+
+        // todo: add filter as para, ref: https://developers.google.com/maps/documentation/places/android-sdk/place-types?hl=zh-tw#table-a
+
+        // hint: Up to 50 types can be specified for each type restriction category.
+        val includedTypes = FoodDrink.toListValue().subList(0, 50)
+//        val excludedTypes = listOf("pizza_restaurant", "american_restaurant")
+
+        val builder = SearchNearbyRequest.builder(circle, placeFields)
+        builder.setIncludedTypes(includedTypes)
+//        builder.setExcludedTypes(excludedTypes)
+        builder.setMaxResultCount(maxResult)
+
+        val request = builder.build()
+        placesClient.searchNearby(request)
+            .addOnSuccessListener(OnSuccessListener { response: SearchNearbyResponse? ->
+                // todo: parse response and format to map and return
+                response?.getPlaces()?.also { places ->
+                    val result = places.map { place ->
+                        mapOf(
+                            "name" to place.displayName,
+                            "placeId" to place.id,
+                            "address" to place.formattedAddress,
+                            "lat" to place.location?.latitude,
+                            "lng" to place.location?.longitude,
+                            "businessStatus" to place.businessStatus,
+                        )
+                    }
+                    cb.onSuccess(result)
+                }
+                //todo: abstract Exception
+                cb.onError(Exception("PlaceApiWapper: searchNearby get NULL response."))
+
+            }).addOnFailureListener { e ->
+                cb.onError(e)
+            }
+
     }
 
 }

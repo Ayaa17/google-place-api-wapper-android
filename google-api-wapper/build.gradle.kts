@@ -41,5 +41,5 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-    implementation("com.google.android.libraries.places:places:5.1.1")
+    implementation(libs.places)
 }
