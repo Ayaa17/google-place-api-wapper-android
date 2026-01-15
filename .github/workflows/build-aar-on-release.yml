@@ -1,0 +1,48 @@
+name: Build AAR on Create Release
+
+on:
+  release:
+    types: [created]
+
+permissions:
+  contents: write
+
+jobs:
+  build-aar:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Build Release AAR
+        run: ./gradlew :google-api-wapper:assembleRelease
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG_NAME="${GITHUB_REF_NAME}"
+          VERSION="${TAG_NAME#v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Rename AAR
+        run: |
+          AAR_PATH=$(find . -path "*build/outputs/aar/*release*.aar" | head -n 1)
+          mv "$AAR_PATH" "google-api-wapper-${{ steps.version.outputs.version }}.aar"
+
+      - name: Upload AAR to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            google-api-wapper-${{ steps.version.outputs.version }}.aar
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
