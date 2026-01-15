@@ -21,9 +21,9 @@ class PlaceApiWapper(context: Context, key: String, callback: PlaceCallback) {
 
     init {
         if (!Places.isInitialized()) {
-            Places.initialize(
+            Places.initializeWithNewPlacesApiEnabled(
                 context,
-                key // fixme:建議用 BuildConfig
+                key, // fixme:建議用 BuildConfig
             )
         }
         placesClient = Places.createClient(context)
@@ -148,9 +148,10 @@ class PlaceApiWapper(context: Context, key: String, callback: PlaceCallback) {
                         )
                     }
                     cb.onSuccess(result)
+                } ?: {
+                    //todo: abstract Exception
+                    cb.onError(Exception("PlaceApiWapper: searchNearby get NULL response."))
                 }
-                //todo: abstract Exception
-                cb.onError(Exception("PlaceApiWapper: searchNearby get NULL response."))
 
             }).addOnFailureListener { e ->
                 cb.onError(e)
