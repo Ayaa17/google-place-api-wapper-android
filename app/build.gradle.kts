@@ -58,6 +58,7 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     implementation(project(":google-place-api-wrapper"))
+//    implementation("com.github.Ayaa17:google-place-api-wapper-android:v0.0.2")
     // ⭐ Kotlin DSL 寫法
 
 }
