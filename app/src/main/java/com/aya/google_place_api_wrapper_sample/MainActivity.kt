@@ -1,4 +1,4 @@
-package com.aya.google_api_wapper_sample
+package com.aya.google_place_api_wrapper_sample
 
 import android.os.Bundle
 import android.util.Log

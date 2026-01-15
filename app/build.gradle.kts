@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.aya.google_api_wapper_sample"
+    namespace = "com.aya.google_place_api_wrapper_sample"
     compileSdk {
         version = release(36)
     }

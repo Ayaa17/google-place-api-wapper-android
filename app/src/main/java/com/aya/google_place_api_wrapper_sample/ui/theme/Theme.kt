@@ -1,4 +1,4 @@
-package com.aya.google_api_wapper_sample.ui.theme
+package com.aya.google_place_api_wrapper_sample.ui.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
