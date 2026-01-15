@@ -21,4 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "google-api-wapper-sample"
 include(":app")
-include(":google-api-wapper")
+include(":google-place-api-wrapper")

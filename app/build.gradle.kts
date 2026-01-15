@@ -57,6 +57,7 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
-    implementation(project(":google-api-wapper"))   // ⭐ Kotlin DSL 寫法
+    implementation(project(":google-place-api-wrapper"))
+    // ⭐ Kotlin DSL 寫法
 
 }
