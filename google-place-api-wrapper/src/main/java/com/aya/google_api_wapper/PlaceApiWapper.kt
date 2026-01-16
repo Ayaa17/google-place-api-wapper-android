@@ -4,6 +4,7 @@ import android.content.Context
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.tasks.OnSuccessListener
 import com.google.android.libraries.places.api.Places
+import com.google.android.libraries.places.api.model.AutocompletePrediction
 import com.google.android.libraries.places.api.model.AutocompleteSessionToken
 import com.google.android.libraries.places.api.model.CircularBounds
 import com.google.android.libraries.places.api.model.Place
@@ -12,11 +13,12 @@ import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRe
 import com.google.android.libraries.places.api.net.PlacesClient
 import com.google.android.libraries.places.api.net.SearchNearbyRequest
 import com.google.android.libraries.places.api.net.SearchNearbyResponse
+import kotlinx.coroutines.tasks.await
 
 
-class PlaceApiWapper(context: Context, key: String, callback: PlaceCallback) {
+class PlaceApiWapper(context: Context, key: String) {
     var placesClient: PlacesClient
-    var cb: PlaceCallback
+    var cb: PlaceCallback? = null
     var lastToken: AutocompleteSessionToken? = null
 
     init {
@@ -27,38 +29,67 @@ class PlaceApiWapper(context: Context, key: String, callback: PlaceCallback) {
             )
         }
         placesClient = Places.createClient(context)
+    }
+
+    fun setCallback(callback: PlaceCallback) {
         cb = callback
     }
 
-    fun autocompletePlaces(input: String) {
-        // todo: add para for set countries
+    fun autocompletePlacesAsync(input: String) {
+        cb?.let {
+            // todo: add para for set countries
+            if (lastToken == null) {
+                lastToken = AutocompleteSessionToken.newInstance()
+            }
+            // fixme: remove !!
+            val request = getFindAutocompletePredictionsRequest(input, lastToken!!)
+            placesClient.findAutocompletePredictions(request)
+                .addOnSuccessListener { response ->
+                    val results = mapAutocompletePredictions(response.autocompletePredictions)
+                    it.onSuccess(results)
+                }
+                .addOnFailureListener { e ->
+                    it.onError(e)
+                }
+        } ?: throw MissingCallbackException()
+    }
+
+    suspend fun autocompletePlacesSync(input: String): Any {
         if (lastToken == null) {
             lastToken = AutocompleteSessionToken.newInstance()
         }
-        val request = FindAutocompletePredictionsRequest.builder()
-            .setQuery(input)
-//            .setCountries("TW")
-            .setSessionToken(lastToken)
-            .build()
 
-        placesClient.findAutocompletePredictions(request)
-            .addOnSuccessListener { response ->
-                val results = response.autocompletePredictions.map { prediction ->
-                    mapOf(
-                        "placeId" to prediction.placeId,
-                        "description" to prediction.getFullText(null).toString(),
-                        "primaryText" to prediction.getPrimaryText(null).toString(),
-                        "secondaryText" to prediction.getSecondaryText(null).toString()
-                    )
-                }
-                cb.onSuccess(results)
-            }
-            .addOnFailureListener { e ->
-                cb.onError(e)
-            }
+        // fixme: remove !!
+        val request = getFindAutocompletePredictionsRequest(input, lastToken!!)
+        val task = placesClient.findAutocompletePredictions(request).await()
+        val results = mapAutocompletePredictions(task.autocompletePredictions)
+        return results
     }
 
-    fun fetchPlaceDetails(placeId: String) {
+    private fun getFindAutocompletePredictionsRequest(
+        input: String,
+        token: AutocompleteSessionToken
+    ): FindAutocompletePredictionsRequest {
+        return FindAutocompletePredictionsRequest.builder()
+            .setQuery(input)
+//            .setCountries("TW")
+            .setSessionToken(token)
+            .build()
+    }
+
+    private fun mapAutocompletePredictions(predictions: List<AutocompletePrediction>): Any {
+        val results = predictions.map { prediction ->
+            mapOf(
+                "placeId" to prediction.placeId,
+                "description" to prediction.getFullText(null).toString(),
+                "primaryText" to prediction.getPrimaryText(null).toString(),
+                "secondaryText" to prediction.getSecondaryText(null).toString()
+            )
+        }
+        return results
+    }
+
+    fun fetchPlaceDetailsAsync(placeId: String) {
         /***
          * 工作階段符記會透過下列方式終止：
          *
@@ -68,6 +99,27 @@ class PlaceApiWapper(context: Context, key: String, callback: PlaceCallback) {
          * ref: https://developers.google.com/maps/documentation/places/android-sdk/place-session-tokens?hl=zh-tw
          * ***/
 
+        cb?.let {
+            val fields = listOf(
+                Place.Field.ID,
+                Place.Field.FORMATTED_ADDRESS,
+                Place.Field.LOCATION,
+                Place.Field.TYPES
+            )
+
+            val request = getFetchPlaceRequest(placeId, fields, lastToken)
+            placesClient.fetchPlace(request)
+                .addOnSuccessListener { response ->
+                    val result = mapPlaceContent(response.place)
+                    it.onSuccess(result)
+                }.addOnFailureListener { e ->
+                    it.onError(e)
+                }
+            lastToken = null
+        } ?: throw MissingCallbackException()
+    }
+
+    suspend fun fetchPlaceDetailsSync(placeId: String): Any {
         val fields = listOf(
             Place.Field.ID,
             Place.Field.FORMATTED_ADDRESS,
@@ -75,40 +127,71 @@ class PlaceApiWapper(context: Context, key: String, callback: PlaceCallback) {
             Place.Field.TYPES
         )
 
-        val builder = FetchPlaceRequest.builder(placeId, fields)
-
-        lastToken?.let {
-            builder.setSessionToken(it)
-        }
-
-        val request = builder.build()
-
-        placesClient.fetchPlace(request)
-            .addOnSuccessListener { response ->
-
-                val place = response.place
-
-                val result = mapOf(
-                    "placeId" to place.id,
-                    "address" to place.formattedAddress,
-                    "latLng" to place.location?.let {
-                        mapOf(
-                            "lat" to it.latitude,
-                            "lng" to it.longitude
-                        )
-                    },
-                    "types" to place.placeTypes
-                )
-                cb.onSuccess(result)
-
-            }.addOnFailureListener { e ->
-                cb.onError(e)
-            }
-        lastToken = null
+        val request = getFetchPlaceRequest(placeId, fields, lastToken)
+        val task = placesClient.fetchPlace(request).await()
+        val results = mapPlaceContent(task.place)
+        return results
     }
 
-    fun searchNearby(longitude: Pair<Double, Double>, radius: Double, maxResult: Int = 20) {
+    private fun getFetchPlaceRequest(
+        placeId: String,
+        fields: List<Place.Field>,
+        token: AutocompleteSessionToken?
+    ): FetchPlaceRequest {
+        val builder = FetchPlaceRequest.builder(placeId, fields)
+        token?.let {
+            builder.setSessionToken(it)
+        }
+        val request = builder.build()
+        return request
+    }
 
+    private fun mapPlaceContent(place: Place): Any {
+        return mapOf(
+            "placeId" to place.id,
+            "address" to place.formattedAddress,
+            "latLng" to place.location?.let { loc ->
+                mapOf(
+                    "lat" to loc.latitude,
+                    "lng" to loc.longitude
+                )
+            },
+            "types" to place.placeTypes
+        )
+    }
+
+    fun searchNearbyAsync(longitude: Pair<Double, Double>, radius: Double, maxResult: Int = 20) {
+        cb?.let {
+            val placeFields = listOf(
+                Place.Field.ID,
+                Place.Field.DISPLAY_NAME,
+                Place.Field.LOCATION,
+//            Place.Field.PHOTO_METADATAS, // todo: 需搭配 https://developers.google.com/maps/documentation/places/android-sdk/place-photos
+                Place.Field.BUSINESS_STATUS,
+                Place.Field.FORMATTED_ADDRESS,
+            )
+
+            val request = getSearchNearbyRequest(longitude, radius, maxResult, placeFields)
+            placesClient.searchNearby(request)
+                .addOnSuccessListener(OnSuccessListener { response: SearchNearbyResponse? ->
+                    // todo: parse response and format to map and return
+                    response?.places?.also { places ->
+                        val result = mapSearchNearbyPlaces(places)
+                        it.onSuccess(result)
+                    } ?: {
+                        it.onError(NullResponseException())
+                    }
+                }).addOnFailureListener { e ->
+                    it.onError(e)
+                }
+        } ?: throw MissingCallbackException()
+    }
+
+    suspend fun searchNearbySync(
+        longitude: Pair<Double, Double>,
+        radius: Double,
+        maxResult: Int = 20
+    ): Any {
         val placeFields = listOf(
             Place.Field.ID,
             Place.Field.DISPLAY_NAME,
@@ -118,6 +201,18 @@ class PlaceApiWapper(context: Context, key: String, callback: PlaceCallback) {
             Place.Field.FORMATTED_ADDRESS,
         )
 
+        val request = getSearchNearbyRequest(longitude, radius, maxResult, placeFields)
+        val task = placesClient.searchNearby(request).await()
+        val results = mapSearchNearbyPlaces(task.places)
+        return results
+    }
+
+    private fun getSearchNearbyRequest(
+        longitude: Pair<Double, Double>,
+        radius: Double,
+        maxResult: Int = 20,
+        field: List<Place.Field>
+    ): SearchNearbyRequest {
         val center = LatLng(longitude.first, longitude.second)
         val circle = CircularBounds.newInstance(center,  /* radius = */radius)
 
@@ -127,42 +222,73 @@ class PlaceApiWapper(context: Context, key: String, callback: PlaceCallback) {
         val includedTypes = FoodDrink.toListValue().subList(0, 50)
 //        val excludedTypes = listOf("pizza_restaurant", "american_restaurant")
 
-        val builder = SearchNearbyRequest.builder(circle, placeFields)
+        val builder = SearchNearbyRequest.builder(circle, field)
         builder.setIncludedTypes(includedTypes)
 //        builder.setExcludedTypes(excludedTypes)
         builder.setMaxResultCount(maxResult)
 
         val request = builder.build()
-        placesClient.searchNearby(request)
-            .addOnSuccessListener(OnSuccessListener { response: SearchNearbyResponse? ->
-                // todo: parse response and format to map and return
-                response?.getPlaces()?.also { places ->
-                    val result = places.map { place ->
-                        mapOf(
-                            "name" to place.displayName,
-                            "placeId" to place.id,
-                            "address" to place.formattedAddress,
-                            "lat" to place.location?.latitude,
-                            "lng" to place.location?.longitude,
-                            "businessStatus" to place.businessStatus,
-                        )
-                    }
-                    cb.onSuccess(result)
-                } ?: {
-                    //todo: abstract Exception
-                    cb.onError(Exception("PlaceApiWapper: searchNearby get NULL response."))
-                }
+        return request
+    }
 
-            }).addOnFailureListener { e ->
-                cb.onError(e)
-            }
-
+    private fun mapSearchNearbyPlaces(places: List<Place>): Any {
+        return places.map { place ->
+            mapOf(
+                "name" to place.displayName,
+                "placeId" to place.id,
+                "address" to place.formattedAddress,
+                "lat" to place.location?.latitude,
+                "lng" to place.location?.longitude,
+                "businessStatus" to place.businessStatus,
+            )
+        }
     }
 
     /***
      * fields trigger the Place Details Essentials SKU+...
      * ***/
-    fun fetchDetails(placeId: String) {
+    fun fetchDetailsAsync(placeId: String) {
+        cb?.let {
+            val fields = listOf(
+                // Place Details Essentials IDs Only SKU:
+                Place.Field.ID,
+//            Place.Field.PHOTO_METADATAS, // todo:https://developers.google.com/maps/documentation/places/android-sdk/place-photos
+
+                // Place Details Essentials SKU:
+                Place.Field.FORMATTED_ADDRESS,
+                Place.Field.LOCATION,
+                Place.Field.TYPES,
+
+                // Place Details Pro SKU:
+                Place.Field.DISPLAY_NAME,
+
+                // Place Details Enterprise SKU:
+                Place.Field.INTERNATIONAL_PHONE_NUMBER,
+                Place.Field.RATING,
+                Place.Field.USER_RATING_COUNT,
+                Place.Field.OPENING_HOURS,
+                Place.Field.PRICE_LEVEL,
+
+                // Place Details Enterprise Plus SKU:
+                Place.Field.REVIEWS,
+            )
+
+            val request = getFetchPlaceRequest(placeId, fields, lastToken)
+
+            placesClient.fetchPlace(request)
+                .addOnSuccessListener { response ->
+
+                    val result = mapPlaceContent(response.place)
+                    it.onSuccess(result)
+
+                }.addOnFailureListener { e ->
+                    it.onError(e)
+                }
+            lastToken = null
+        } ?: throw MissingCallbackException()
+    }
+
+    suspend fun fetchDetailsSync(placeId: String): Any {
         val fields = listOf(
             // Place Details Essentials IDs Only SKU:
             Place.Field.ID,
@@ -187,36 +313,10 @@ class PlaceApiWapper(context: Context, key: String, callback: PlaceCallback) {
             Place.Field.REVIEWS,
         )
 
-        val builder = FetchPlaceRequest.builder(placeId, fields)
+        val request = getFetchPlaceRequest(placeId, fields, lastToken)
 
-        lastToken?.let {
-            builder.setSessionToken(it)
-        }
-
-        val request = builder.build()
-
-        placesClient.fetchPlace(request)
-            .addOnSuccessListener { response ->
-
-                val place = response.place
-
-                val result = mapOf(
-                    "placeId" to place.id,
-                    "address" to place.formattedAddress,
-                    "latLng" to place.location?.let {
-                        mapOf(
-                            "lat" to it.latitude,
-                            "lng" to it.longitude
-                        )
-                    },
-                    "types" to place.placeTypes
-                )
-                cb.onSuccess(result)
-
-            }.addOnFailureListener { e ->
-                cb.onError(e)
-            }
-        lastToken = null
+        val task = placesClient.fetchPlace(request).await()
+        val result = mapPlaceContent(task.place)
+        return result
     }
-
 }

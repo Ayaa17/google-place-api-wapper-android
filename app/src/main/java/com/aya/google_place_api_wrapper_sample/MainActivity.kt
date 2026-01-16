@@ -20,8 +20,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.lifecycleScope
 import com.aya.google_api_wapper.PlaceApiWapper
 import com.aya.google_api_wapper.PlaceCallback
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -50,21 +52,27 @@ class MainActivity : ComponentActivity() {
         }
 
         val key = "PUT_KEY_HERE" // fixme: hide sec key
-        placeApi = PlaceApiWapper(this, key, cb)
-
+        placeApi = PlaceApiWapper(this, key).also {
+            it.setCallback(cb) // Async need set callback
+        }
 
         setContent {
             SimplePlaceUI(
                 resultText = resultText,
                 onButtonClick = {
 //                    val keyword = "台北"
-//                    placeApi?.autocompletePlaces(keyword)
+//                    placeApi?.autocompletePlacesAsync(keyword)
 
 //                    val placeID = "ChIJcVe4HuirQjQRWHrzxtVRImg" //test 台灣臺北市松山區南京東路四段台北小巨蛋
-//                    placeApi?.fetchPlaceDetails(placeID)
+//                    placeApi?.fetchPlaceDetailsAsync(placeID)
 
                     val center = Pair<Double, Double>(40.7580, -73.9855)
-                    placeApi?.searchNearby(center, 1000.0)
+                    placeApi?.searchNearbyAsync(center, 1000.0)
+
+//                    lifecycleScope.launch {
+//                        val result = placeApi?.autocompletePlacesSync(keyword)
+//                    }
+
                 }
             )
         }
