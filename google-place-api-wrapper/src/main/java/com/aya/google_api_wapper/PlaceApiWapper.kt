@@ -149,7 +149,7 @@ class PlaceApiWapper(context: Context, key: String) {
     private fun mapPlaceContent(place: Place): Any {
         return mapOf(
             "placeId" to place.id,
-            "address" to place.formattedAddress,
+            "formattedAddress" to place.formattedAddress,
             "latLng" to place.location?.let { loc ->
                 mapOf(
                     "lat" to loc.latitude,
@@ -236,10 +236,10 @@ class PlaceApiWapper(context: Context, key: String) {
             mapOf(
                 "name" to place.displayName,
                 "placeId" to place.id,
-                "address" to place.formattedAddress,
+                "formattedAddress" to place.formattedAddress,
                 "lat" to place.location?.latitude,
                 "lng" to place.location?.longitude,
-                "businessStatus" to place.businessStatus,
+                "businessStatus" to place.businessStatus?.toString(),
             )
         }
     }
