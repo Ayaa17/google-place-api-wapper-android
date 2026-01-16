@@ -62,10 +62,12 @@ val cb: PlaceCallback = object : PlaceCallback {
 }
 
 val key = "PUT_KEY_HERE" // fixme: hide sec key
-placeApi = PlaceApiWapper(this, key, cb)
+placeApi = PlaceApiWapper(this, key).also {
+    it.setCallback(cb) // Async need set callback
+}
 
 val keyword = "台北"
-placeApi?.autocompletePlaces(keyword)
+placeApi?.autocompletePlacesAsync(keyword)
 
 ```
 
