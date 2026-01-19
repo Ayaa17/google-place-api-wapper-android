@@ -351,8 +351,32 @@ class PlaceApiWapper(context: Context, key: String) {
         val request = getFetchPlaceRequest(placeId, fields, lastToken)
 
         val task = placesClient.fetchPlace(request).await()
-        val result = mapPlaceContent(task.place)
+        val result = mapPlaceMoreDetails(task.place)
         return result
+    }
+
+    private fun mapPlaceMoreDetails(place: Place): Any {
+        return mapOf(
+            "name" to place.displayName,
+            "placeId" to place.id,
+            "formattedAddress" to place.formattedAddress,
+            "latLng" to place.location?.let { loc ->
+                mapOf(
+                    "lat" to loc.latitude,
+                    "lng" to loc.longitude
+                )
+            },
+            "types" to place.placeTypes,
+
+//            "photos" to list, //todo:
+            "businessStatus" to place.businessStatus?.toString(),
+            "user_ratings_total" to place.userRatingCount,
+            "rating" to place.rating,
+            "price_level" to place.priceLevel,
+            "opening_hours" to place.openingHours, // todo: format to string
+            "formatted_phone_number" to place.internationalPhoneNumber,
+            "reviews" to place.reviews,  // todo: format to string
+        )
     }
 
     fun fetchPhotoAsync(photoMetadata: PhotoMetadata) {
