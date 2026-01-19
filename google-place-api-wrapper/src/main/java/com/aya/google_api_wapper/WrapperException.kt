@@ -55,3 +55,9 @@ class NullResponseException(
     message: String? = "get null response.",
     cause: Throwable? = null
 ) : WrapperException(message)
+
+// Unknown / unexpected errors
+class NullPhotoException(
+    message: String? = "get null photo.",
+    cause: Throwable? = null
+) : WrapperException(message)

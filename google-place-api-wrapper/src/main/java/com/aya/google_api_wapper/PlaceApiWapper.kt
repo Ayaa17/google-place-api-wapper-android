@@ -7,8 +7,10 @@ import com.google.android.libraries.places.api.Places
 import com.google.android.libraries.places.api.model.AutocompletePrediction
 import com.google.android.libraries.places.api.model.AutocompleteSessionToken
 import com.google.android.libraries.places.api.model.CircularBounds
+import com.google.android.libraries.places.api.model.PhotoMetadata
 import com.google.android.libraries.places.api.model.Place
 import com.google.android.libraries.places.api.net.FetchPlaceRequest
+import com.google.android.libraries.places.api.net.FetchResolvedPhotoUriRequest
 import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
 import com.google.android.libraries.places.api.net.PlacesClient
 import com.google.android.libraries.places.api.net.SearchNearbyRequest
@@ -161,14 +163,19 @@ class PlaceApiWapper(context: Context, key: String) {
     }
 
     fun searchNearbyAsync(longitude: Pair<Double, Double>, radius: Double, maxResult: Int = 20) {
+        // todo: add Photo
         cb?.let {
             val placeFields = listOf(
                 Place.Field.ID,
-                Place.Field.DISPLAY_NAME,
                 Place.Field.LOCATION,
-//            Place.Field.PHOTO_METADATAS, // todo: 需搭配 https://developers.google.com/maps/documentation/places/android-sdk/place-photos
-                Place.Field.BUSINESS_STATUS,
                 Place.Field.FORMATTED_ADDRESS,
+                // Nearby Search Pro SKU:
+                Place.Field.BUSINESS_STATUS,
+                Place.Field.DISPLAY_NAME,
+//                Place.Field.PHOTO_METADATAS,// todo: 需搭配 https://developers.google.com/maps/documentation/places/android-sdk/place-photos
+                // Nearby Search Enterprise SKU:
+                Place.Field.USER_RATING_COUNT,
+                Place.Field.RATING,
             )
 
             val request = getSearchNearbyRequest(longitude, radius, maxResult, placeFields)
@@ -190,27 +197,32 @@ class PlaceApiWapper(context: Context, key: String) {
     suspend fun searchNearbySync(
         longitude: Pair<Double, Double>,
         radius: Double,
-        maxResult: Int = 20
-    ): Any {
+        maxResult: Int = 1
+    ): List<Map<String, Any?>> {
         val placeFields = listOf(
             Place.Field.ID,
-            Place.Field.DISPLAY_NAME,
             Place.Field.LOCATION,
-//            Place.Field.PHOTO_METADATAS, // todo: 需搭配 https://developers.google.com/maps/documentation/places/android-sdk/place-photos
-            Place.Field.BUSINESS_STATUS,
             Place.Field.FORMATTED_ADDRESS,
+            // Nearby Search Pro SKU:
+            Place.Field.BUSINESS_STATUS,
+            Place.Field.DISPLAY_NAME,
+            Place.Field.PHOTO_METADATAS,
+            // Nearby Search Enterprise SKU:
+            Place.Field.USER_RATING_COUNT,
+            Place.Field.RATING,
         )
 
         val request = getSearchNearbyRequest(longitude, radius, maxResult, placeFields)
         val task = placesClient.searchNearby(request).await()
-        val results = mapSearchNearbyPlaces(task.places)
+        val results =
+            mapSearchNearbyPlacesWithPhoto(task.places, 1) //mapSearchNearbyPlaces(task.places)
         return results
     }
 
     private fun getSearchNearbyRequest(
         longitude: Pair<Double, Double>,
         radius: Double,
-        maxResult: Int = 20,
+        maxResult: Int,
         field: List<Place.Field>
     ): SearchNearbyRequest {
         val center = LatLng(longitude.first, longitude.second)
@@ -231,7 +243,7 @@ class PlaceApiWapper(context: Context, key: String) {
         return request
     }
 
-    private fun mapSearchNearbyPlaces(places: List<Place>): Any {
+    private fun mapSearchNearbyPlaces(places: List<Place>): List<Map<String, Any?>> {
         return places.map { place ->
             mapOf(
                 "name" to place.displayName,
@@ -240,6 +252,29 @@ class PlaceApiWapper(context: Context, key: String) {
                 "lat" to place.location?.latitude,
                 "lng" to place.location?.longitude,
                 "businessStatus" to place.businessStatus?.toString(),
+                "user_ratings_total" to place.userRatingCount,
+                "rating" to place.rating,
+            )
+        }
+    }
+
+    private suspend fun mapSearchNearbyPlacesWithPhoto(
+        places: List<Place>,
+        limit: Int
+    ): List<Map<String, Any?>> {
+        return places.map { place ->
+            // todo: handel photoMetadatas is null
+            val list = fetchPhotoSync(place.photoMetadatas, limit)
+            mapOf(
+                "name" to place.displayName,
+                "placeId" to place.id,
+                "formattedAddress" to place.formattedAddress,
+                "lat" to place.location?.latitude,
+                "lng" to place.location?.longitude,
+                "photos" to list,
+                "businessStatus" to place.businessStatus?.toString(),
+                "user_ratings_total" to place.userRatingCount,
+                "rating" to place.rating,
             )
         }
     }
@@ -318,5 +353,31 @@ class PlaceApiWapper(context: Context, key: String) {
         val task = placesClient.fetchPlace(request).await()
         val result = mapPlaceContent(task.place)
         return result
+    }
+
+    fun fetchPhotoAsync(photoMetadata: PhotoMetadata) {
+        // todo: set setMaxHeight() or setMaxWidth()
+        cb?.let {
+            val req = FetchResolvedPhotoUriRequest.builder(photoMetadata).build()
+            placesClient.fetchResolvedPhotoUri(req).addOnSuccessListener { response ->
+                response.uri?.let { uri -> it.onSuccess(uri) } ?: it.onError(NullPhotoException())
+            }.addOnFailureListener { exception ->
+                it.onError(exception)
+            }
+        } ?: throw MissingCallbackException()
+    }
+
+    suspend fun fetchPhotoSync(photoMetadatas: List<PhotoMetadata>, limit: Int): List<String> {
+        // todo: set setMaxHeight() or setMaxWidth()
+        val uriList = mutableListOf<String>()
+        val count = photoMetadatas.size.takeIf { n -> n < limit } ?: limit
+        for (i in 0 until count) {
+            val req = FetchResolvedPhotoUriRequest.builder(photoMetadatas[i]).build()
+            val task = placesClient.fetchResolvedPhotoUri(req).await()
+            task.uri?.let {
+                uriList.add(it.toString())
+            }
+        }
+        return uriList
     }
 }
