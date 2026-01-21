@@ -323,7 +323,7 @@ class PlaceApiWapper(context: Context, key: String) {
         } ?: throw MissingCallbackException()
     }
 
-    suspend fun fetchDetailsSync(placeId: String): Any {
+    suspend fun fetchDetailsSync(placeId: String): Map<String, Any?> {
         val fields = listOf(
             // Place Details Essentials IDs Only SKU:
             Place.Field.ID,
@@ -336,6 +336,7 @@ class PlaceApiWapper(context: Context, key: String) {
 
             // Place Details Pro SKU:
             Place.Field.DISPLAY_NAME,
+            Place.Field.BUSINESS_STATUS,
 
             // Place Details Enterprise SKU:
             Place.Field.INTERNATIONAL_PHONE_NUMBER,
@@ -355,7 +356,8 @@ class PlaceApiWapper(context: Context, key: String) {
         return result
     }
 
-    private fun mapPlaceMoreDetails(place: Place): Any {
+    private fun mapPlaceMoreDetails(place: Place): Map<String, Any?> {
+        // fixme: 營業時間跟時區有關係,需驗證
         return mapOf(
             "name" to place.displayName,
             "placeId" to place.id,
@@ -373,9 +375,19 @@ class PlaceApiWapper(context: Context, key: String) {
             "user_ratings_total" to place.userRatingCount,
             "rating" to place.rating,
             "price_level" to place.priceLevel,
-            "opening_hours" to place.openingHours, // todo: format to string
+            "opening_hours" to mapOf(
+                "weekday_text" to place.openingHours?.weekdayText,
+                "open_now" to place.businessStatus?.equals(Place.BusinessStatus.OPERATIONAL),
+            ),
             "formatted_phone_number" to place.internationalPhoneNumber,
-            "reviews" to place.reviews,  // todo: format to string
+            "reviews" to place.reviews?.map { review ->
+                mapOf(
+                    "author_name" to review.authorAttribution.name,
+                    "rating" to review.rating,
+                    "relative_time_description" to review.relativePublishTimeDescription,
+                    "text" to review.text,
+                )
+            },
         )
     }
 
