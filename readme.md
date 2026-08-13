@@ -1,3 +1,5 @@
+
+
 # Google Place API Wrapper for Android
 
 [![Release](https://img.shields.io/github/v/release/Ayaa17/google-place-api-wapper-android?label=Release&sort=semver)](https://github.com/Ayaa17/google-place-api-wapper-android/releases)
@@ -47,6 +49,9 @@ dependencies {
 ## Usage
 
 ```kotlin
+import com.aya.google_api_wapper.PlaceApiWapper
+import com.aya.google_api_wapper.PlaceCallback
+
 val cb: PlaceCallback = object : PlaceCallback {
     override fun onSuccess(response: Any): Int {
         Log.d(TAG, "onSuccess: $response")
@@ -88,7 +93,3 @@ Contributions are welcome!
 ## License
 
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
-
-```
-
-
